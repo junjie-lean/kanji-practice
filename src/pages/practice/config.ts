@@ -16,7 +16,7 @@ export const VOCABULARY_BOOKS: BookConfig[] = [
 		filename: 'kotoba_1.json',
 		difficulty: 'easy',
 		icon: '📕',
-		color: 'from-red-500 to-red-200',
+		color: 'from-red-500 via-red-400 to-red-700',
 	},
 	{
 		id: 'kotoba_2',
@@ -25,7 +25,7 @@ export const VOCABULARY_BOOKS: BookConfig[] = [
 		filename: 'kotoba_2.json',
 		difficulty: 'easy',
 		icon: '📗',
-		color: 'from-green-400 to-green-300',
+		color: 'from-green-400 via-green-300 to-green-700',
 	},
 	{
 		id: 'kotoba_3',
@@ -34,7 +34,7 @@ export const VOCABULARY_BOOKS: BookConfig[] = [
 		filename: 'kotoba_3.json',
 		difficulty: 'easy',
 		icon: '📘',
-		color: 'from-blue-400 to-blue-300',
+		color: 'from-blue-400 via-blue-300 to-blue-700',
 	},
 	{
 		id: 'kotoba_4',
@@ -43,7 +43,7 @@ export const VOCABULARY_BOOKS: BookConfig[] = [
 		filename: 'kotoba_4.json',
 		difficulty: 'easy',
 		icon: '📙',
-		color: 'from-yellow-400 to-yellow-300',
+		color: 'from-yellow-400 via-yellow-300 to-yellow-700',
 	},
 ]
 
