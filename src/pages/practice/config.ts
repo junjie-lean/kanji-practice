@@ -1,0 +1,84 @@
+export interface BookConfig {
+	id: string
+	title: string
+	description: string
+	filename: string
+	difficulty?: 'easy' | 'medium' | 'hard'
+	icon?: string
+	color?: string
+}
+
+export const VOCABULARY_BOOKS: BookConfig[] = [
+	{
+		id: 'kotoba_1',
+		title: '第1课词汇',
+		description: '基础词汇',
+		filename: 'kotoba_1.json',
+		difficulty: 'easy',
+		icon: '📕',
+		color: 'from-red-500 to-red-200',
+	},
+	{
+		id: 'kotoba_2',
+		title: '第2课词汇',
+		description: '基础词汇',
+		filename: 'kotoba_2.json',
+		difficulty: 'easy',
+		icon: '📗',
+		color: 'from-green-400 to-green-300',
+	},
+	{
+		id: 'kotoba_3',
+		title: '第3课词汇',
+		description: '动词、时间相关词汇',
+		filename: 'kotoba_3.json',
+		difficulty: 'easy',
+		icon: '📘',
+		color: 'from-blue-400 to-blue-300',
+	},
+	{
+		id: 'kotoba_4',
+		title: '第4课词汇',
+		description: '动词、时间相关词汇',
+		filename: 'kotoba_4.json',
+		difficulty: 'easy',
+		icon: '📙',
+		color: 'from-yellow-400 to-yellow-300',
+	},
+]
+
+// 根据 ID 获取词库配置
+export function getBookById(id: string): BookConfig | undefined {
+	return VOCABULARY_BOOKS.find(book => book.id === id)
+}
+
+// 动态导入词库 JSON 文件
+export async function loadVocabularyBook(filename: string) {
+	try {
+		// eslint-disable-next-line @next/next/no-assign-module-variable
+		const module = await import(`./kanji/${filename}`)
+		return module.default
+	} catch (error) {
+		console.error(`Failed to load vocabulary book: ${filename}`, error)
+		return null
+	}
+}
+
+// 新增：获取词库详细信息（包含单词数量）
+export interface BookConfigWithCount extends BookConfig {
+	wordCount: number
+}
+
+export async function getBookConfigWithCount(config: BookConfig): Promise<BookConfigWithCount> {
+	const words = await loadVocabularyBook(config.filename)
+	return {
+		...config,
+		wordCount: words ? words.length : 0,
+	}
+}
+
+// 新增：批量获取所有词库的详细信息
+export async function getAllBooksWithCount(): Promise<BookConfigWithCount[]> {
+	const promises = VOCABULARY_BOOKS.map(book => getBookConfigWithCount(book))
+	return Promise.all(promises)
+}
