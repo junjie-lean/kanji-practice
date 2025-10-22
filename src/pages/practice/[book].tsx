@@ -3,31 +3,12 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 import { getBookById, loadVocabularyBook, type BookConfig } from './config';
+import { speechService } from '@/utils/speechService';
 
 interface Word {
     日汉字: string;
     平假名: string;
     中文: string;
-}
-
-// 声明 ResponsiveVoice 类型
-declare global {
-    interface Window {
-        responsiveVoice: {
-            speak: (text: string, voice: string, parameters?: {
-                pitch?: number;
-                rate?: number;
-                volume?: number;
-                onstart?: () => void;
-                onend?: () => void;
-                onerror?: (error: any) => void;
-            }) => void;
-            cancel: () => void;
-            isPlaying: () => boolean;
-            voiceSupport: () => boolean;
-            getVoices: () => any[];
-        };
-    }
 }
 
 export default function PracticeLesson() {
@@ -37,9 +18,9 @@ export default function PracticeLesson() {
     const [bookConfig, setBookConfig] = useState<BookConfig | null>(null);
     const [vocabulary, setVocabulary] = useState<Word[]>([]);
     const [currentWord, setCurrentWord] = useState<Word | null>(null);
-    const [currentIndex, setCurrentIndex] = useState<number | null>(null); // 新增：记录当前单词索引
-    const [practicedIndices, setPracticedIndices] = useState<Set<number>>(new Set()); // 新增：所有练习过的单词索引
-    const [totalPracticeCount, setTotalPracticeCount] = useState(0); // 新增：总练习次数
+    const [currentIndex, setCurrentIndex] = useState<number | null>(null);
+    const [practicedIndices, setPracticedIndices] = useState<Set<number>>(new Set());
+    const [totalPracticeCount, setTotalPracticeCount] = useState(0);
     const [isSpeaking, setIsSpeaking] = useState(false);
     const [isContentVisible, setIsContentVisible] = useState(false);
     const [isRVLoaded, setIsRVLoaded] = useState(false);
@@ -74,22 +55,23 @@ export default function PracticeLesson() {
 
     // 检查 ResponsiveVoice
     useEffect(() => {
-        const checkRV = setInterval(() => {
-            if (window.responsiveVoice) {
-                setIsRVLoaded(true);
+        const checkRV = async () => {
+            const loaded = await speechService.waitForLoad();
+            setIsRVLoaded(loaded);
+            if (loaded) {
                 console.log('✅ ResponsiveVoice 已就绪');
-                clearInterval(checkRV);
+            } else {
+                console.error('❌ ResponsiveVoice 加载超时');
             }
-        }, 100);
+        };
 
-        return () => clearInterval(checkRV);
+        checkRV();
     }, []);
 
-    // 简化后的随机选择单词算法 - 每个单词只出现一次
+    // 简化后的随机选择单词算法
     const selectRandomWord = () => {
         if (vocabulary.length === 0) return null;
 
-        // 获取所有未练习过的索引
         const availableIndices: number[] = [];
         for (let i = 0; i < vocabulary.length; i++) {
             if (!practicedIndices.has(i)) {
@@ -97,31 +79,26 @@ export default function PracticeLesson() {
             }
         }
 
-        // 如果所有单词都练习完了
         if (availableIndices.length === 0) {
             console.log('🎉 所有单词已练习完成！');
             return null;
         }
 
-        // 从未练习的单词中随机选择
         const randomIndex = availableIndices[
             Math.floor(Math.random() * availableIndices.length)
         ];
         const selectedWord = vocabulary[randomIndex];
 
-        // 更新状态
         setCurrentWord(selectedWord);
         setCurrentIndex(randomIndex);
         setIsContentVisible(false);
 
-        // 添加到已练习集合
         setPracticedIndices(prev => {
             const newSet = new Set(prev);
             newSet.add(randomIndex);
             return newSet;
         });
 
-        // 增加总练习次数
         setTotalPracticeCount(prev => prev + 1);
 
         console.log(`✅ 选择单词 [${randomIndex}]: ${selectedWord.日汉字}`);
@@ -131,52 +108,39 @@ export default function PracticeLesson() {
         return selectedWord;
     };
 
-    // 使用 ResponsiveVoice 朗读
-    const speakWithResponsiveVoice = (word: Word) => {
-        if (!window.responsiveVoice) {
-            alert('ResponsiveVoice 未加载，请刷新页面重试');
-            return;
-        }
-
-        window.responsiveVoice.cancel();
+    // 朗读单词
+    const speakWord = (word: Word) => {
         const textToSpeak = word.平假名 || word.日汉字;
 
-        window.responsiveVoice.speak(
+        const success = speechService.speak(
             textToSpeak,
-            'Japanese Female',
             {
-                pitch: 1.1,
-                rate: 0.8,
-                volume: 1,
-                onstart: () => {
-                    console.log('开始播放:', textToSpeak);
-                    setIsSpeaking(true);
-                },
-                onend: () => {
-                    console.log('播放结束');
-                    setIsSpeaking(false);
-                },
-                onerror: (error) => {
-                    console.error('播放错误:', error);
+                onStart: () => setIsSpeaking(true),
+                onEnd: () => setIsSpeaking(false),
+                onError: (error) => {
                     setIsSpeaking(false);
                     alert('播放失败，请检查网络连接');
                 }
             }
         );
+
+        if (!success) {
+            alert('ResponsiveVoice 未加载，请刷新页面重试');
+        }
     };
 
     // 随机听写
     const handleRandomDictation = () => {
         const word = selectRandomWord();
         if (word) {
-            speakWithResponsiveVoice(word);
+            speakWord(word);
         }
     };
 
     // 重新播放
     const handleReplay = () => {
         if (currentWord) {
-            speakWithResponsiveVoice(currentWord);
+            speakWord(currentWord);
         }
     };
 
@@ -276,7 +240,7 @@ export default function PracticeLesson() {
                     </div>
                 )}
 
-                {/* 随机听写按钮 */}
+                {/* 按钮区域 - 合并随机听写和重新播放 */}
                 <div className="flex justify-center gap-4 mb-8">
                     <button
                         onClick={handleRandomDictation}
@@ -293,11 +257,28 @@ export default function PracticeLesson() {
                         {!isRVLoaded
                             ? '⏳ 准备中...'
                             : isSpeaking
-                                ? '朗读中...'
+                                ? '🔊 朗读中...'
                                 : practicedIndices.size >= vocabulary.length
                                     ? '🎉 已完成'
-                                    : '🎲 随机听写'
+                                    : currentWord
+                                        ? '➡️ 下一个'
+                                        : '🎲 随机听写'
                         }
+                    </button>
+
+                    <button
+                        onClick={handleReplay}
+                        disabled={!currentWord || isSpeaking || !isRVLoaded}
+                        className={`
+              px-8 py-4 rounded-lg font-semibold text-white text-lg
+              transition-all duration-300 transform
+              ${!currentWord || isSpeaking || !isRVLoaded
+                                ? 'bg-gray-400 cursor-not-allowed'
+                                : 'bg-purple-600 hover:bg-purple-700 hover:scale-105 active:scale-95 shadow-lg hover:shadow-xl'
+                            }
+            `}
+                    >
+                        🔊 重新播放
                     </button>
                 </div>
 
@@ -339,22 +320,6 @@ export default function PracticeLesson() {
                                 </div>
                             </div>
                         </div>
-
-                        {/* 重新播放按钮 */}
-                        <button
-                            onClick={handleReplay}
-                            disabled={isSpeaking || !isRVLoaded}
-                            className={`
-                mt-4 w-full py-2 rounded-lg font-medium
-                transition-all duration-200
-                ${isSpeaking || !isRVLoaded
-                                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                                    : 'bg-purple-500 text-white hover:bg-purple-600'
-                                }
-              `}
-                        >
-                            🔊 重新播放
-                        </button>
                     </div>
                 )}
 
