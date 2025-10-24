@@ -182,19 +182,19 @@ export default function VocabularyPage() {
                 {/* 表格容器 */}
                 <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden border border-transparent dark:border-gray-700">
                     <div className="overflow-x-auto">
-                        <table className="w-full">
+                        <table className="w-full table-fixed">
                             <thead className="bg-gradient-to-r from-indigo-500 to-purple-500 dark:from-indigo-700 dark:to-purple-700">
                                 <tr>
-                                    <th className="px-4 py-3 text-left text-xs sm:text-sm font-semibold text-white uppercase tracking-wider w-16 sm:w-20">
+                                    <th className="px-4 py-3 text-left text-xs sm:text-sm font-semibold text-white uppercase tracking-wider" style={{ width: '10%' }}>
                                         序号
                                     </th>
-                                    <th className="px-4 py-3 text-left text-xs sm:text-sm font-semibold text-white uppercase tracking-wider">
+                                    <th className="px-4 py-3 text-left text-xs sm:text-sm font-semibold text-white uppercase tracking-wider" style={{ width: '25%' }}>
                                         假名
                                     </th>
-                                    <th className="px-4 py-3 text-left text-xs sm:text-sm font-semibold text-white uppercase tracking-wider">
+                                    <th className="px-4 py-3 text-left text-xs sm:text-sm font-semibold text-white uppercase tracking-wider" style={{ width: '25%' }}>
                                         日汉字
                                     </th>
-                                    <th className="px-4 py-3 text-left text-xs sm:text-sm font-semibold text-white uppercase tracking-wider">
+                                    <th className="px-4 py-3 text-left text-xs sm:text-sm font-semibold text-white uppercase tracking-wider" style={{ width: '40%' }}>
                                         中文含义
                                     </th>
                                 </tr>
