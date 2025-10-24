@@ -56,7 +56,7 @@ export function getBookById(id: string): BookConfig | undefined {
 export async function loadVocabularyBook(filename: string) {
 	try {
 		// eslint-disable-next-line @next/next/no-assign-module-variable
-		const module = await import(`./kanji/${filename}`)
+		const module = await import(`./kotoba/${filename}`)
 		return module.default
 	} catch (error) {
 		console.error(`Failed to load vocabulary book: ${filename}`, error)

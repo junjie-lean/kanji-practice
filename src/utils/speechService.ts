@@ -1,33 +1,3 @@
-// ResponsiveVoice 类型定义
-declare global {
-	interface Window {
-		responsiveVoice: {
-			speak: (
-				text: string,
-				voice: string,
-				parameters?: {
-					pitch?: number
-					rate?: number
-					volume?: number
-					onstart?: () => void
-					onend?: () => void
-					onerror?: (error: any) => void
-				}
-			) => void
-			cancel: () => void
-			isPlaying: () => boolean
-			voiceSupport: () => boolean
-			getVoices: () => any[]
-		}
-	}
-}
-
-export interface SpeechConfig {
-	pitch?: number
-	rate?: number
-	volume?: number
-}
-
 export interface SpeechCallbacks {
 	onStart?: () => void
 	onEnd?: () => void
@@ -35,44 +5,32 @@ export interface SpeechCallbacks {
 }
 
 class SpeechService {
-	private defaultConfig: SpeechConfig = {
-		pitch: 0.9,
-		rate: 1.1,
-		volume: 1,
-	}
+	private currentAudio: HTMLAudioElement | null = null
+	private speechSynthesis: SpeechSynthesis | null = null
+	private currentUtterance: SpeechSynthesisUtterance | null = null
 
-	/**
-	 * 检查 ResponsiveVoice 是否已加载
-	 */
-	isLoaded(): boolean {
-		return typeof window !== 'undefined' && !!window.responsiveVoice
-	}
-
-	/**
-	 * 等待 ResponsiveVoice 加载完成
-	 */
-	async waitForLoad(timeout: number = 10000): Promise<boolean> {
-		const startTime = Date.now()
-
-		return new Promise(resolve => {
-			const checkInterval = setInterval(() => {
-				if (this.isLoaded()) {
-					clearInterval(checkInterval)
-					resolve(true)
-				} else if (Date.now() - startTime > timeout) {
-					clearInterval(checkInterval)
-					resolve(false)
-				}
-			}, 100)
-		})
+	constructor() {
+		// 初始化 Web Speech API
+		if (typeof window !== 'undefined' && window.speechSynthesis) {
+			this.speechSynthesis = window.speechSynthesis
+		}
 	}
 
 	/**
 	 * 停止当前播放
 	 */
 	cancel(): void {
-		if (this.isLoaded()) {
-			window.responsiveVoice.cancel()
+		// 停止音频播放
+		if (this.currentAudio) {
+			this.currentAudio.pause()
+			this.currentAudio.currentTime = 0
+			this.currentAudio = null
+		}
+
+		// 停止 TTS 播放
+		if (this.speechSynthesis && this.currentUtterance) {
+			this.speechSynthesis.cancel()
+			this.currentUtterance = null
 		}
 	}
 
@@ -80,62 +38,137 @@ class SpeechService {
 	 * 检查是否正在播放
 	 */
 	isPlaying(): boolean {
-		return this.isLoaded() && window.responsiveVoice.isPlaying()
+		const audioPlaying = this.currentAudio !== null && !this.currentAudio.paused
+		const ttsPlaying = this.speechSynthesis?.speaking || false
+		return audioPlaying || ttsPlaying
 	}
 
 	/**
-	 * 朗读日语文本
-	 * @param text 要朗读的文本
-	 * @param callbacks 回调函数
-	 * @param config 配置选项（可选）
+	 * 使用浏览器 TTS API 播放（降级方案）
 	 */
-	speak(text: string, callbacks?: SpeechCallbacks, config?: SpeechConfig): boolean {
-		if (!this.isLoaded()) {
-			console.error('ResponsiveVoice 未加载')
-			callbacks?.onError?.(new Error('ResponsiveVoice not loaded'))
+	private speakWithBrowserTTS(text: string, callbacks?: SpeechCallbacks): boolean {
+		if (!this.speechSynthesis) {
+			console.error('浏览器不支持 Speech Synthesis API')
+			callbacks?.onError?.(new Error('Browser does not support Speech Synthesis'))
 			return false
 		}
 
-		// 停止当前播放
-		this.cancel()
-
-		// 合并配置
-		const finalConfig = { ...this.defaultConfig, ...config }
-
 		try {
-			window.responsiveVoice.speak(text, 'Japanese Female', {
-				pitch: finalConfig.pitch,
-				rate: finalConfig.rate,
-				volume: finalConfig.volume,
-				onstart: () => {
-					console.log('🔊 开始播放:', text)
-					callbacks?.onStart?.()
-				},
-				onend: () => {
-					console.log('✅ 播放结束')
-					callbacks?.onEnd?.()
-				},
-				onerror: error => {
-					console.error('❌ 播放错误:', error)
-					callbacks?.onError?.(error)
-				},
-			})
+			this.currentUtterance = new SpeechSynthesisUtterance(text)
+			this.currentUtterance.lang = 'ja-JP' // 日语
+			this.currentUtterance.rate = 1.0
+			this.currentUtterance.pitch = 1.0
+			this.currentUtterance.volume = 1.0
+
+			this.currentUtterance.onstart = () => {
+				console.log('🔊 TTS 开始播放:', text)
+				callbacks?.onStart?.()
+			}
+
+			this.currentUtterance.onend = () => {
+				console.log('✅ TTS 播放结束')
+				callbacks?.onEnd?.()
+				this.currentUtterance = null
+			}
+
+			this.currentUtterance.onerror = event => {
+				console.error('❌ TTS 播放错误:', event)
+				callbacks?.onError?.(event)
+				this.currentUtterance = null
+			}
+
+			this.speechSynthesis.speak(this.currentUtterance)
 			return true
 		} catch (error) {
-			console.error('❌ 播放失败:', error)
+			console.error('❌ TTS 创建失败:', error)
 			callbacks?.onError?.(error)
 			return false
 		}
 	}
 
 	/**
-	 * 获取可用的语音列表
+	 * 使用有道 API 播放（主要方案）
 	 */
-	getVoices(): any[] {
-		if (this.isLoaded()) {
-			return window.responsiveVoice.getVoices()
+	private async speakWithYoudao(text: string, callbacks?: SpeechCallbacks): Promise<boolean> {
+		return new Promise(resolve => {
+			try {
+				// URL 编码文本
+				const encodedText = encodeURIComponent(text)
+
+				// 构建有道语音 API 地址
+				const audioUrl = `https://dict.youdao.com/dictvoice?audio=${encodedText}&le=jap`
+
+				// 创建新的音频对象
+				this.currentAudio = new Audio(audioUrl)
+
+				// 设置超时时间（5秒）
+				const timeout = setTimeout(() => {
+					console.warn('⚠️ 有道 API 加载超时，降级使用浏览器 TTS')
+					this.cancel()
+					resolve(false)
+				}, 5000)
+
+				// 设置事件监听
+				this.currentAudio.onloadstart = () => {
+					clearTimeout(timeout)
+					console.log('🔊 有道 API 开始播放:', text)
+					callbacks?.onStart?.()
+				}
+
+				this.currentAudio.onended = () => {
+					clearTimeout(timeout)
+					console.log('✅ 有道 API 播放结束')
+					callbacks?.onEnd?.()
+					this.currentAudio = null
+					resolve(true)
+				}
+
+				this.currentAudio.onerror = error => {
+					clearTimeout(timeout)
+					console.warn('⚠️ 有道 API 播放错误，降级使用浏览器 TTS:', error)
+					this.currentAudio = null
+					resolve(false)
+				}
+
+				// 开始播放
+				this.currentAudio.play().catch(error => {
+					clearTimeout(timeout)
+					console.warn('⚠️ 有道 API 播放失败，降级使用浏览器 TTS:', error)
+					this.currentAudio = null
+					resolve(false)
+				})
+			} catch (error) {
+				console.warn('⚠️ 有道 API 创建失败，降级使用浏览器 TTS:', error)
+				resolve(false)
+			}
+		})
+	}
+
+	/**
+	 * 朗读日语文本
+	 * @param text 要朗读的文本
+	 * @param callbacks 回调函数
+	 */
+	async speak(text: string, callbacks?: SpeechCallbacks): Promise<boolean> {
+		if (!text || text.trim() === '') {
+			console.error('文本不能为空')
+			callbacks?.onError?.(new Error('Text cannot be empty'))
+			return false
 		}
-		return []
+
+		// 停止当前播放
+		this.cancel()
+
+		// 首先尝试使用有道 API
+		const youdaoSuccess = await this.speakWithYoudao(text, callbacks)
+
+		// 如果有道 API 失败，降级使用浏览器 TTS
+		if (!youdaoSuccess) {
+			console.log('🔄 使用浏览器 TTS 降级播放')
+			return this.speakWithBrowserTTS(text, callbacks)
+		}
+
+		return true
 	}
 }
 
