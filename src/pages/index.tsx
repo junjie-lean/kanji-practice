@@ -18,10 +18,10 @@ export default function Home() {
           {/* 标题 */}
           <div className="text-center mb-12 sm:mb-16">
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-gray-900 dark:text-white mb-4 sm:mb-6">
-              日语学习平台
+              未来日语单词记忆助手
             </h1>
             <p className="text-lg sm:text-xl text-gray-600 dark:text-gray-300 max-w-2xl">
-              通过听写练习提升你的日语水平
+              (　JLPT 私たちは来ました！！！)
             </p>
           </div>
 
@@ -56,7 +56,7 @@ export default function Home() {
           </div>
 
           {/* 特性介绍 */}
-          <div className="mt-16 sm:mt-20 grid grid-cols-1 md:grid-cols-3 gap-6 sm:gap-8 w-full max-w-5xl">
+          <div className="mt-16 sm:mt-20 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8 w-full max-w-6xl">
             <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg hover:shadow-xl transition-shadow">
               <div className="text-4xl mb-4">🎯</div>
               <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
@@ -84,6 +84,16 @@ export default function Home() {
               </h3>
               <p className="text-gray-600 dark:text-gray-300">
                 护眼模式，夜间学习更舒适
+              </p>
+            </div>
+
+            <div className="bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 p-6 rounded-xl shadow-lg hover:shadow-xl transition-shadow border-2 border-dashed border-indigo-300 dark:border-indigo-700">
+              <div className="text-4xl mb-4">🚀</div>
+              <h3 className="text-xl font-bold text-indigo-600 dark:text-indigo-400 mb-2">
+                即将推出
+              </h3>
+              <p className="text-gray-700 dark:text-gray-300">
+                未来会增加对话听力的支持
               </p>
             </div>
           </div>

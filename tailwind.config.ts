@@ -7,6 +7,7 @@ const config: Config = {
 		'./src/components/**/*.{js,ts,jsx,tsx,mdx}',
 		'./src/app/**/*.{js,ts,jsx,tsx,mdx}',
 		'./src/data/**/*.{ts,tsx}',
+		'./src/utils/**/*.{ts,tsx}',
 		'./node_modules/@nextui-org/theme/dist/**/*.{js,ts,jsx,tsx}',
 	],
 	safelist: [

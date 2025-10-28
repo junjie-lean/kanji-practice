@@ -1,10 +1,11 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 import { getBookById, loadVocabularyBook, type BookConfig } from '@/data/config';
 import { speechService } from '@/utils/speechService';
 import DarkModeToggle from '@/components/DarkModeToggle';
+import { compareStrings, ComparisonStatus, getBorderClass, getFocusRingClass } from '@/utils/stringComparison';
 
 interface Word {
     日汉字: string;
@@ -25,6 +26,24 @@ export default function PracticeLesson() {
     const [isSpeaking, setIsSpeaking] = useState(false);
     const [isContentVisible, setIsContentVisible] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
+
+    // 输入框相关状态
+    const [userInput, setUserInput] = useState('');
+    const [comparisonStatus, setComparisonStatus] = useState<ComparisonStatus>(ComparisonStatus.EMPTY);
+    const [isDesktop, setIsDesktop] = useState(false);
+    const inputRef = useRef<HTMLInputElement>(null);
+
+    // 检测是否为桌面端
+    useEffect(() => {
+        const checkDesktop = () => {
+            setIsDesktop(window.innerWidth >= 640); // sm 断点
+        };
+
+        checkDesktop();
+        window.addEventListener('resize', checkDesktop);
+
+        return () => window.removeEventListener('resize', checkDesktop);
+    }, []);
 
     // 加载词库
     useEffect(() => {
@@ -78,6 +97,10 @@ export default function PracticeLesson() {
         setCurrentIndex(randomIndex);
         setIsContentVisible(false);
 
+        // 重置输入框
+        setUserInput('');
+        setComparisonStatus(ComparisonStatus.EMPTY);
+
         setPracticedIndices(prev => {
             const newSet = new Set(prev);
             newSet.add(randomIndex);
@@ -91,6 +114,18 @@ export default function PracticeLesson() {
         console.log(`📈 剩余: ${availableIndices.length - 1} 个`);
 
         return selectedWord;
+    };
+
+    // 处理输入变化（带即时比对）
+    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const input = e.target.value;
+        setUserInput(input);
+
+        // 仅在桌面端进行即时比对
+        if (currentWord && isDesktop) {
+            const status = compareStrings(input, currentWord.平假名);
+            setComparisonStatus(status);
+        }
     };
 
     // 朗读单词
@@ -130,50 +165,34 @@ export default function PracticeLesson() {
         }
     };
 
-    // 键盘快捷键监听
-    useEffect(() => {
-        const handleKeyDown = (e: KeyboardEvent) => {
-            // 回车键：听写下一个单词
-            if (e.key === 'Enter') {
-                // 只在有可练习单词且不在朗读中时触发
-                if (!isSpeaking && practicedIndices.size < vocabulary.length) {
-                    e.preventDefault();
-                    // 直接执行逻辑，避免依赖闭包
-                    const word = selectRandomWord();
-                    if (word) {
-                        speakWord(word);
-                    }
-                }
-            }
-
-            // 空格键：按住查看答案
-            if (e.key === ' ' || e.code === 'Space') {
-                // 只在有当前单词且答案未显示时触发
-                if (currentWord && !isContentVisible) {
-                    e.preventDefault();
-                    setIsContentVisible(true);
-                }
-            }
-        };
-
-        const handleKeyUp = (e: KeyboardEvent) => {
-            // 空格键：松开隐藏答案
-            if (e.key === ' ' || e.code === 'Space') {
+    // 处理输入框键盘事件
+    const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+        // Enter 键：答案正确时切换到下一个
+        if (e.key === 'Enter') {
+            if (comparisonStatus === ComparisonStatus.CORRECT && !isSpeaking) {
                 e.preventDefault();
-                setIsContentVisible(false);
+                // 立即清空输入框
+                setUserInput('');
+                setComparisonStatus(ComparisonStatus.EMPTY);
+                // 选择并播放下一个单词
+                handleRandomDictation();
             }
-        };
+        }
 
-        // 添加事件监听器
-        window.addEventListener('keydown', handleKeyDown);
-        window.addEventListener('keyup', handleKeyUp);
+        // Space 键：显示答案
+        if (e.key === ' ' || e.code === 'Space') {
+            e.preventDefault();
+            setIsContentVisible(true);
+        }
+    };
 
-        // 清理事件监听器
-        return () => {
-            window.removeEventListener('keydown', handleKeyDown);
-            window.removeEventListener('keyup', handleKeyUp);
-        };
-    }, [currentWord, isSpeaking, practicedIndices.size, vocabulary.length, isContentVisible]);
+    const handleInputKeyUp = (e: React.KeyboardEvent<HTMLInputElement>) => {
+        // Space 键：隐藏答案
+        if (e.key === ' ' || e.code === 'Space') {
+            e.preventDefault();
+            setIsContentVisible(false);
+        }
+    };
 
     // 加载中
     if (isLoading) {
@@ -350,20 +369,28 @@ export default function PracticeLesson() {
                     </div>
                 )}
 
-                {/* 键盘快捷键提示 - 仅桌面端显示 */}
+                {/* 输入框 */}
                 {currentWord && practicedIndices.size < vocabulary.length && (
-                    <div className="hidden sm:block mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
-                        <div className="flex flex-wrap gap-3 sm:gap-4 justify-center items-center text-xs sm:text-sm text-gray-600 dark:text-gray-400">
-                            <span className="flex items-center gap-1.5">
-                                <kbd className="px-2 py-1 bg-white dark:bg-gray-700 rounded border border-gray-300 dark:border-gray-600 font-mono text-xs font-semibold shadow-sm">Enter</kbd>
-                                <span>听写下一个</span>
-                            </span>
-                            <span className="text-gray-400 dark:text-gray-600">•</span>
-                            <span className="flex items-center gap-1.5">
-                                <kbd className="px-2 py-1 bg-white dark:bg-gray-700 rounded border border-gray-300 dark:border-gray-600 font-mono text-xs font-semibold shadow-sm">Space</kbd>
-                                <span>按住查看答案</span>
-                            </span>
-                        </div>
+                    <div className="mt-6">
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            输入假名：
+                        </label>
+                        <input
+                            ref={inputRef}
+                            type="text"
+                            value={userInput}
+                            onChange={handleInputChange}
+                            onKeyDown={handleInputKeyDown}
+                            onKeyUp={handleInputKeyUp}
+                            placeholder="请输入平假名..."
+                            className={`w-full px-4 py-3 rounded-lg border-2 ${getBorderClass(comparisonStatus)} ${getFocusRingClass(comparisonStatus)} bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 transition-all duration-200 text-base sm:text-lg`}
+                            autoComplete="off"
+                        />
+                        {isDesktop && (
+                            <p className="mt-2 text-xs sm:text-sm text-gray-500 dark:text-gray-400">
+                                💡 提示：答案正确时按 <kbd className="px-1.5 py-0.5 bg-gray-200 dark:bg-gray-600 rounded text-xs font-mono">Enter</kbd> 继续，按住 <kbd className="px-1.5 py-0.5 bg-gray-200 dark:bg-gray-600 rounded text-xs font-mono">Space</kbd> 查看答案
+                            </p>
+                        )}
                     </div>
                 )}
 
