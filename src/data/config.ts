@@ -63,6 +63,15 @@ export const VOCABULARY_BOOKS: BookConfig[] = [
 		icon: '📚',
 		color: 'from-orange-400 via-orange-300 to-orange-700',
 	},
+	{
+		id: 'kotoba_7',
+		title: '第7课词汇',
+		description: '形容词',
+		filename: 'kotoba_7.json',
+		difficulty: 'easy',
+		icon: '📚',
+		color: 'from-purple-400 via-purple-300 to-purple-700',
+	},
 ]
 
 // 根据 ID 获取词库配置
