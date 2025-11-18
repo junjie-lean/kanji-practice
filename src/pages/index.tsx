@@ -26,7 +26,7 @@ export default function Home() {
           </div>
 
           {/* 导航按钮组 */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 w-full max-w-4xl">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 w-full max-w-6xl">
             <Button
               size="lg"
               color="primary"
@@ -52,6 +52,15 @@ export default function Home() {
               onClick={() => router.push('/vocabulary')}
             >
               🔍 单词检索
+            </Button>
+
+            <Button
+              size="lg"
+              color="warning"
+              className="w-full h-16 text-lg font-semibold"
+              onClick={() => router.push('/games/flashcard')}
+            >
+              🎮 记忆卡片
             </Button>
           </div>
 
@@ -87,13 +96,13 @@ export default function Home() {
               </p>
             </div>
 
-            <div className="bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 p-6 rounded-xl shadow-lg hover:shadow-xl transition-shadow border-2 border-dashed border-indigo-300 dark:border-indigo-700">
-              <div className="text-4xl mb-4">🚀</div>
-              <h3 className="text-xl font-bold text-indigo-600 dark:text-indigo-400 mb-2">
-                即将推出
+            <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg hover:shadow-xl transition-shadow">
+              <div className="text-4xl mb-4">🎴</div>
+              <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
+                记忆卡片
               </h3>
-              <p className="text-gray-700 dark:text-gray-300">
-                未来会增加对话听力的支持
+              <p className="text-gray-600 dark:text-gray-300">
+                通过翻转卡片互动学习，加深单词记忆
               </p>
             </div>
           </div>
