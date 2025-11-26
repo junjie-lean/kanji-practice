@@ -5,7 +5,7 @@
 
 import { useState } from 'react';
 import { speechService } from '@/utils/speechService';
-import type { DisplayMode } from '@/utils/flashcardStorage';
+import type { DisplayMode, CardStatus } from '@/utils/flashcardStorage';
 
 // ==================== 类型定义 ====================
 
@@ -20,12 +20,44 @@ interface FlashCardProps {
   mode: DisplayMode;
   isFlipped: boolean;
   onFlip: () => void;
+  cardStatus?: CardStatus | null;
 }
 
 // ==================== 主组件 ====================
 
-export default function FlashCard({ word, mode, isFlipped, onFlip }: FlashCardProps) {
+export default function FlashCard({ word, mode, isFlipped, onFlip, cardStatus }: FlashCardProps) {
   const [isSpeaking, setIsSpeaking] = useState(false);
+
+  // ==================== 状态徽章 ====================
+
+  const StatusBadge = () => {
+    if (!cardStatus || cardStatus === 'learning') return null;
+
+    const badgeConfig = {
+      mastered: {
+        bg: 'bg-green-500 dark:bg-green-600',
+        text: 'text-white',
+        icon: '✅',
+        label: '已掌握',
+      },
+      need_review: {
+        bg: 'bg-orange-500 dark:bg-orange-600',
+        text: 'text-white',
+        icon: '📝',
+        label: '需复习',
+      },
+    };
+
+    const config = badgeConfig[cardStatus];
+    if (!config) return null;
+
+    return (
+      <div className={`absolute top-4 left-4 ${config.bg} ${config.text} px-3 py-1.5 rounded-full text-xs sm:text-sm font-semibold shadow-lg flex items-center gap-1.5 z-10`}>
+        <span>{config.icon}</span>
+        <span className="hidden sm:inline">{config.label}</span>
+      </div>
+    );
+  };
 
   // ==================== 语音朗读 ====================
 
@@ -144,7 +176,8 @@ export default function FlashCard({ word, mode, isFlipped, onFlip }: FlashCardPr
         {/* 卡片内部容器 */}
         <div className="flip-card-inner">
           {/* 正面 */}
-          <div className="flip-card-front bg-white dark:bg-gray-800 border-4 border-indigo-200 dark:border-indigo-700">
+          <div className="flip-card-front bg-white dark:bg-gray-800 border-4 border-indigo-200 dark:border-indigo-700 relative">
+            <StatusBadge />
             {frontContent}
             {/* 提示文字 */}
             <div className="absolute bottom-4 left-0 right-0 text-center">
@@ -190,7 +223,7 @@ export default function FlashCard({ word, mode, isFlipped, onFlip }: FlashCardPr
           position: relative;
           width: 100%;
           height: 100%;
-          transition: transform 0.6s cubic-bezier(0.4, 0.0, 0.2, 1);
+          transition: transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
           transform-style: preserve-3d;
         }
 

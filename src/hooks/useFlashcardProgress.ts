@@ -3,7 +3,7 @@
  * 管理单词卡片的学习状态、进度和交互逻辑
  */
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { VOCABULARY_BOOKS, loadVocabularyBook } from '@/data/config';
 import {
   getConfig,
@@ -42,6 +42,7 @@ export interface UseFlashcardProgressReturn {
   totalCards: number;
   isFlipped: boolean;
   isLoading: boolean;
+  isTransitioning: boolean;
 
   // 操作函数
   toggleMode: () => void;
@@ -53,6 +54,7 @@ export interface UseFlashcardProgressReturn {
   previousCard: () => void;
   resetProgress: () => void;
   goToCard: (index: number) => void;
+  getCardStatus: (wordId: string) => CardStatus | null;
 }
 
 // ==================== Fisher-Yates 洗牌算法 ====================
@@ -75,6 +77,8 @@ export function useFlashcardProgress(): UseFlashcardProgressReturn {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [isTransitioning, setIsTransitioning] = useState(false);
+  const transitionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // ==================== 加载所有词库 ====================
 
@@ -207,6 +211,23 @@ export function useFlashcardProgress(): UseFlashcardProgressReturn {
     setIsFlipped(false);
   }, [currentIndex, displayWords.length]);
 
+  // ==================== 清理定时器 ====================
+
+  const clearTransition = useCallback(() => {
+    if (transitionTimeoutRef.current) {
+      clearTimeout(transitionTimeoutRef.current);
+      transitionTimeoutRef.current = null;
+    }
+    setIsTransitioning(false);
+  }, []);
+
+  // ==================== 获取卡片状态 ====================
+
+  const getCardStatus = useCallback((wordId: string): CardStatus | null => {
+    const progress = getProgress(wordId);
+    return progress ? progress.status : null;
+  }, []);
+
   // ==================== 学习进度标记函数 ====================
 
   const markAsNeedReview = useCallback(() => {
@@ -216,9 +237,19 @@ export function useFlashcardProgress(): UseFlashcardProgressReturn {
     const newProgress = updateProgress(existingProgress, 'need_review');
     saveProgress(currentCard.id, newProgress);
 
-    // 标记后自动跳转到下一张
-    nextCard();
-  }, [currentCard, nextCard]);
+    // 设置过渡状态
+    setIsTransitioning(true);
+    
+    // 清理之前的定时器
+    clearTransition();
+    
+    // 延迟跳转到下一张（默认2秒）
+    transitionTimeoutRef.current = setTimeout(() => {
+      nextCard();
+      setIsTransitioning(false);
+      transitionTimeoutRef.current = null;
+    }, 2000);
+  }, [currentCard, nextCard, clearTransition]);
 
   const markAsMastered = useCallback(() => {
     if (!currentCard) return;
@@ -227,9 +258,27 @@ export function useFlashcardProgress(): UseFlashcardProgressReturn {
     const newProgress = updateProgress(existingProgress, 'mastered');
     saveProgress(currentCard.id, newProgress);
 
-    // 标记后自动跳转到下一张
-    nextCard();
-  }, [currentCard, nextCard]);
+    // 设置过渡状态
+    setIsTransitioning(true);
+    
+    // 清理之前的定时器
+    clearTransition();
+    
+    // 延迟跳转到下一张（默认2秒）
+    transitionTimeoutRef.current = setTimeout(() => {
+      nextCard();
+      setIsTransitioning(false);
+      transitionTimeoutRef.current = null;
+    }, 2000);
+  }, [currentCard, nextCard, clearTransition]);
+
+  // ==================== 清理效果 ====================
+
+  useEffect(() => {
+    return () => {
+      clearTransition();
+    };
+  }, [clearTransition]);
 
   // ==================== 重置进度 ====================
 
@@ -252,6 +301,7 @@ export function useFlashcardProgress(): UseFlashcardProgressReturn {
     totalCards: displayWords.length,
     isFlipped,
     isLoading,
+    isTransitioning,
 
     // 操作函数
     toggleMode,
@@ -263,6 +313,7 @@ export function useFlashcardProgress(): UseFlashcardProgressReturn {
     previousCard,
     resetProgress,
     goToCard,
+    getCardStatus,
   };
 }
 

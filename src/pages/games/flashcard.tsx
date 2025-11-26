@@ -9,6 +9,7 @@ import Link from 'next/link';
 import DarkModeToggle from '@/components/DarkModeToggle';
 import FlashCard from '@/components/FlashCard';
 import { useFlashcardProgress } from '@/hooks/useFlashcardProgress';
+import type { CardStatus } from '@/utils/flashcardStorage';
 
 export default function FlashcardGame() {
   const {
@@ -19,6 +20,7 @@ export default function FlashcardGame() {
     totalCards,
     isFlipped,
     isLoading,
+    isTransitioning,
     toggleMode,
     toggleShuffle,
     flipCard,
@@ -27,10 +29,39 @@ export default function FlashcardGame() {
     nextCard,
     previousCard,
     resetProgress,
+    getCardStatus,
   } = useFlashcardProgress();
 
   const [showConfigMenu, setShowConfigMenu] = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [statusFeedback, setStatusFeedback] = useState<{ type: 'mastered' | 'need_review', visible: boolean } | null>(null);
+  const [isCardTransitioning, setIsCardTransitioning] = useState(false);
+
+  // ==================== 处理标记操作 ====================
+
+  const handleMarkAsNeedReview = () => {
+    markAsNeedReview();
+    setStatusFeedback({ type: 'need_review', visible: true });
+    setTimeout(() => {
+      setStatusFeedback(prev => prev ? { ...prev, visible: false } : null);
+    }, 2000);
+  };
+
+  const handleMarkAsMastered = () => {
+    markAsMastered();
+    setStatusFeedback({ type: 'mastered', visible: true });
+    setTimeout(() => {
+      setStatusFeedback(prev => prev ? { ...prev, visible: false } : null);
+    }, 2000);
+  };
+
+  // ==================== 处理重置进度 ====================
+
+  const handleResetProgress = () => {
+    resetProgress();
+    setShowResetConfirm(false);
+    setShowConfigMenu(false);
+  };
 
   // ==================== 键盘快捷键 ====================
 
@@ -47,11 +78,11 @@ export default function FlashcardGame() {
           break;
         case 'ArrowLeft':
           e.preventDefault();
-          markAsNeedReview();
+          handleMarkAsNeedReview();
           break;
         case 'ArrowRight':
           e.preventDefault();
-          markAsMastered();
+          handleMarkAsMastered();
           break;
         case 'ArrowDown':
           e.preventDefault();
@@ -68,21 +99,25 @@ export default function FlashcardGame() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [
     flipCard,
-    markAsNeedReview,
-    markAsMastered,
+    handleMarkAsNeedReview,
+    handleMarkAsMastered,
     nextCard,
     previousCard,
     showConfigMenu,
     showResetConfirm,
   ]);
 
-  // ==================== 处理重置进度 ====================
+  // ==================== 卡片切换动画 ====================
 
-  const handleResetProgress = () => {
-    resetProgress();
-    setShowResetConfirm(false);
-    setShowConfigMenu(false);
-  };
+  useEffect(() => {
+    if (currentCard) {
+      setIsCardTransitioning(true);
+      const timer = setTimeout(() => {
+        setIsCardTransitioning(false);
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [currentIndex, currentCard]);
 
   // ==================== 加载中状态 ====================
 
@@ -161,7 +196,7 @@ export default function FlashcardGame() {
         {showConfigMenu && (
           <div className="mb-6 bg-white dark:bg-gray-800 rounded-xl shadow-lg p-4 sm:p-6 border border-transparent dark:border-gray-700">
             <h3 className="text-lg font-bold text-gray-800 dark:text-white mb-4">⚙️ 设置</h3>
-            
+
             <div className="space-y-4">
               {/* 显示模式切换 */}
               <div className="flex items-center justify-between">
@@ -179,11 +214,10 @@ export default function FlashcardGame() {
                 <span className="text-sm sm:text-base text-gray-700 dark:text-gray-300">乱序模式</span>
                 <button
                   onClick={toggleShuffle}
-                  className={`px-4 py-2 rounded-lg transition-colors text-sm sm:text-base ${
-                    config.shuffled
-                      ? 'bg-green-600 dark:bg-green-700 hover:bg-green-700 dark:hover:bg-green-600 text-white'
-                      : 'bg-gray-300 dark:bg-gray-600 hover:bg-gray-400 dark:hover:bg-gray-500 text-gray-700 dark:text-gray-300'
-                  }`}
+                  className={`px-4 py-2 rounded-lg transition-colors text-sm sm:text-base ${config.shuffled
+                    ? 'bg-green-600 dark:bg-green-700 hover:bg-green-700 dark:hover:bg-green-600 text-white'
+                    : 'bg-gray-300 dark:bg-gray-600 hover:bg-gray-400 dark:hover:bg-gray-500 text-gray-700 dark:text-gray-300'
+                    }`}
                 >
                   {config.shuffled ? '🔀 已开启' : '📋 已关闭'}
                 </button>
@@ -246,6 +280,24 @@ export default function FlashcardGame() {
           </p>
         </div>
 
+        {/* ==================== 顶部进度条 ==================== */}
+        {totalCards > 0 && (
+          <div className="mb-6">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm text-gray-600 dark:text-gray-400">学习进度</span>
+              <span className="text-sm font-semibold text-indigo-600 dark:text-indigo-400">
+                {Math.round(((currentIndex + 1) / totalCards) * 100)}%
+              </span>
+            </div>
+            <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3 overflow-hidden">
+              <div
+                className="h-full bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 transition-all duration-500 ease-out rounded-full"
+                style={{ width: `${((currentIndex + 1) / totalCards) * 100}%` }}
+              />
+            </div>
+          </div>
+        )}
+
         {/* ==================== 统计信息 ==================== */}
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-4 sm:p-6 mb-6 border border-transparent dark:border-gray-700">
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
@@ -276,32 +328,69 @@ export default function FlashcardGame() {
           </div>
         </div>
 
+        {/* ==================== 状态反馈 Toast ==================== */}
+        {statusFeedback && statusFeedback.visible && (
+          <div className="fixed top-20 left-1/2 transform -translate-x-1/2 z-50 animate-fade-in">
+            <div className={`px-6 py-3 rounded-lg shadow-2xl text-white font-semibold flex items-center gap-2 ${statusFeedback.type === 'mastered'
+              ? 'bg-green-500 dark:bg-green-600'
+              : 'bg-orange-500 dark:bg-orange-600'
+              }`}>
+              <span>{statusFeedback.type === 'mastered' ? '✅' : '📝'}</span>
+              <span>{statusFeedback.type === 'mastered' ? '已标记为已掌握' : '已标记为需复习'}</span>
+            </div>
+          </div>
+        )}
+
         {/* ==================== 卡片展示区 ==================== */}
-        <div className="mb-6">
-          <FlashCard word={currentCard} mode={config.mode} isFlipped={isFlipped} onFlip={flipCard} />
+        <div className={`mb-6 transition-all duration-300 ${isCardTransitioning ? 'opacity-0 scale-95' : 'opacity-100 scale-100'}`}>
+          <FlashCard
+            word={currentCard}
+            mode={config.mode}
+            isFlipped={isFlipped}
+            onFlip={flipCard}
+            cardStatus={currentCard ? getCardStatus(currentCard.id) : null}
+          />
         </div>
 
         {/* ==================== 底部操作按钮 ==================== */}
-        <div className="grid grid-cols-3 gap-3 sm:gap-4 mb-6">
+        <div className="flex items-center justify-center gap-3 sm:gap-4 mb-6">
           <button
-            onClick={markAsNeedReview}
-            className="px-4 sm:px-6 py-3 sm:py-4 bg-orange-600 dark:bg-orange-700 hover:bg-orange-700 dark:hover:bg-orange-600 text-white rounded-xl font-semibold transition-all duration-300 transform hover:scale-105 active:scale-95 shadow-lg hover:shadow-xl text-sm sm:text-base"
+            onClick={handleMarkAsNeedReview}
+            disabled={isTransitioning}
+            className="flex-1 px-4 sm:px-6 py-3 sm:py-4 bg-orange-600 dark:bg-orange-700 hover:bg-orange-700 dark:hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl font-semibold transition-all duration-300 transform hover:scale-105 active:scale-95 shadow-lg hover:shadow-xl text-sm sm:text-base"
           >
             📝 需复习
           </button>
           <button
             onClick={nextCard}
-            className="px-4 sm:px-6 py-3 sm:py-4 bg-indigo-600 dark:bg-indigo-700 hover:bg-indigo-700 dark:hover:bg-indigo-600 text-white rounded-xl font-semibold transition-all duration-300 transform hover:scale-105 active:scale-95 shadow-lg hover:shadow-xl text-sm sm:text-base"
+            className="px-6 sm:px-8 py-3 sm:py-4 bg-indigo-600 dark:bg-indigo-700 hover:bg-indigo-700 dark:hover:bg-indigo-600 text-white rounded-xl font-bold transition-all duration-300 transform hover:scale-110 active:scale-95 shadow-xl hover:shadow-2xl text-base sm:text-lg relative z-10"
+            style={{ minWidth: '120px' }}
           >
             ⏭️ 下一个
           </button>
           <button
-            onClick={markAsMastered}
-            className="px-4 sm:px-6 py-3 sm:py-4 bg-green-600 dark:bg-green-700 hover:bg-green-700 dark:hover:bg-green-600 text-white rounded-xl font-semibold transition-all duration-300 transform hover:scale-105 active:scale-95 shadow-lg hover:shadow-xl text-sm sm:text-base"
+            onClick={handleMarkAsMastered}
+            disabled={isTransitioning}
+            className="flex-1 px-4 sm:px-6 py-3 sm:py-4 bg-green-600 dark:bg-green-700 hover:bg-green-700 dark:hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl font-semibold transition-all duration-300 transform hover:scale-105 active:scale-95 shadow-lg hover:shadow-xl text-sm sm:text-base"
           >
             ✅ 已掌握
           </button>
         </div>
+
+        {/* ==================== 底部进度指示器 ==================== */}
+        {totalCards > 0 && (
+          <div className="mb-6 text-center">
+            <div className="inline-flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 rounded-full shadow-md border border-gray-200 dark:border-gray-700">
+              <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+                {currentIndex + 1}
+              </span>
+              <span className="text-sm text-gray-500 dark:text-gray-400">/</span>
+              <span className="text-sm text-gray-500 dark:text-gray-400">
+                {totalCards}
+              </span>
+            </div>
+          </div>
+        )}
 
         {/* ==================== 键盘快捷键提示 ==================== */}
         <div className="bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 rounded-xl p-4 sm:p-6 border border-purple-200 dark:border-purple-800">
